@@ -102,7 +102,10 @@ class Dockerfile:
 
 
 def parse(text: str) -> Dockerfile:
-    """Parse `text` into stages. Unparseable input yields an empty stage list rather than raising."""
+    """Parse `text` into stages.
+
+    Unparseable input yields an empty stage list rather than raising.
+    """
     stages: list[Stage] = []
     preamble: list[Instruction] = []
 

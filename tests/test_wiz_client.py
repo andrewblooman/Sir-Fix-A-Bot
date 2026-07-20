@@ -136,7 +136,9 @@ class TestWizClientQueries:
     async def test_get_finding_returns_none_when_absent(self, settings: Settings) -> None:
         respx.post(AUTH_URL).mock(return_value=httpx.Response(200, json=TOKEN_RESPONSE))
         respx.post(API_URL).mock(
-            return_value=httpx.Response(200, json={"data": {"vulnerabilityFindings": {"nodes": []}}})
+            return_value=httpx.Response(
+                200, json={"data": {"vulnerabilityFindings": {"nodes": []}}}
+            )
         )
 
         async with WizClient(settings) as client:

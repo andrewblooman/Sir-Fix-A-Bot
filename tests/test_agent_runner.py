@@ -137,9 +137,7 @@ class TestPromptRendering:
         assert "/work/repo" in prompt
         assert "https://github.com/acme/checkout-api" in prompt
 
-    def test_vendor_prefers_team_then_owner(
-        self, finding: Finding, service: ServiceRecord
-    ) -> None:
+    def test_vendor_prefers_team_then_owner(self, finding: Finding, service: ServiceRecord) -> None:
         assert 'image.vendor="payments"' in build_fix_prompt(finding, service, Path("/w"))
 
         no_team = service.model_copy(update={"team": None})

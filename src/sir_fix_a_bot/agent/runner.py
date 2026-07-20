@@ -43,11 +43,44 @@ _ALLOWED_TOOLS = ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "TodoWrite"]
 #: injection cannot reach curl, gcloud, or a package publish.
 _ALLOWED_COMMANDS = frozenset(
     {
-        "cat", "ls", "head", "tail", "wc", "find", "grep", "rg", "sed", "awk", "sort", "uniq",
-        "diff", "file", "stat", "basename", "dirname", "realpath", "echo", "true", "pwd", "test",
-        "python", "python3", "pytest", "tox", "ruff", "mypy",
-        "node", "npm", "npx", "yarn", "pnpm", "jq",
-        "go", "cargo", "mvn", "gradle",
+        "cat",
+        "ls",
+        "head",
+        "tail",
+        "wc",
+        "find",
+        "grep",
+        "rg",
+        "sed",
+        "awk",
+        "sort",
+        "uniq",
+        "diff",
+        "file",
+        "stat",
+        "basename",
+        "dirname",
+        "realpath",
+        "echo",
+        "true",
+        "pwd",
+        "test",
+        "python",
+        "python3",
+        "pytest",
+        "tox",
+        "ruff",
+        "mypy",
+        "node",
+        "npm",
+        "npx",
+        "yarn",
+        "pnpm",
+        "jq",
+        "go",
+        "cargo",
+        "mvn",
+        "gradle",
         "git",
     }
 )
@@ -55,7 +88,18 @@ _ALLOWED_COMMANDS = frozenset(
 #: git subcommands that only read, or that stay local. `push`, `remote` and `config` are excluded so
 #: the agent cannot reach GitHub or discover credentials.
 _ALLOWED_GIT = frozenset(
-    {"status", "diff", "log", "show", "ls-files", "add", "checkout", "restore", "rev-parse", "blame"}
+    {
+        "status",
+        "diff",
+        "log",
+        "show",
+        "ls-files",
+        "add",
+        "checkout",
+        "restore",
+        "rev-parse",
+        "blame",
+    }
 )
 
 _SHELL_OPERATORS = re.compile(r"(\|\||&&|[|;`]|\$\(|>\s*/|\bsudo\b)")
@@ -105,7 +149,9 @@ def _load_prompt(name: str, **substitutions: str) -> str:
 def build_fix_prompt(finding: Finding, service: ServiceRecord, worktree: Path) -> str:
     vendor = service.team or service.owner or service.repo_full_name.split("/", 1)[0]
     cvss = f" (CVSS {finding.cvss_score})" if finding.cvss_score else ""
-    description = f"### Description\n\n{finding.description.strip()}\n" if finding.description else ""
+    description = (
+        f"### Description\n\n{finding.description.strip()}\n" if finding.description else ""
+    )
 
     return _load_prompt(
         "fix_vulnerability.md",
@@ -147,7 +193,8 @@ def build_repair_prompt(
     return _load_prompt(
         "repair.md",
         SERVICE_NAME=service.service_name,
-        FAILURE_SECTION="\n\n".join(sections) or "## Failure\n\nVerification failed without detail.",
+        FAILURE_SECTION="\n\n".join(sections)
+        or "## Failure\n\nVerification failed without detail.",
     )
 
 

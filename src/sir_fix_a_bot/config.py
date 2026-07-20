@@ -67,11 +67,13 @@ class Settings(BaseSettings):
     notion_token: SecretRef
     #: Notion database id of the CMDB.
     notion_cmdb_database_id: str
-    #: Command used to launch the stdio MCP server. In the deployed image the server is npm-installed
-    #: and version-pinned at build time, so this points at the local binary rather than fetching via
-    #: `npx -y` on every run.
+    #: Command used to launch the stdio MCP server. In the deployed image the server is
+    #: npm-installed and version-pinned at build time, so this points at the local binary rather
+    #: than fetching via `npx -y` on every run.
     notion_mcp_command: str = "npx"
-    notion_mcp_args: list[str] = Field(default_factory=lambda: ["-y", "@notionhq/notion-mcp-server"])
+    notion_mcp_args: list[str] = Field(
+        default_factory=lambda: ["-y", "@notionhq/notion-mcp-server"]
+    )
 
     # CMDB column names. Notion property names are free text and differ per workspace, so they are
     # configuration rather than constants.

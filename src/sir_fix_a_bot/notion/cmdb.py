@@ -109,7 +109,9 @@ class NotionCmdb:
             )
         if len(sources) > 1:
             names = ", ".join(str(s.get("name")) for s in sources)
-            logger.warning("CMDB database has %d data sources (%s); using the first", len(sources), names)
+            logger.warning(
+                "CMDB database has %d data sources (%s); using the first", len(sources), names
+            )
 
         self._data_source_id = str(sources[0]["id"])
         return self._data_source_id

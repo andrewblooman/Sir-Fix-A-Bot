@@ -36,7 +36,9 @@ def mock_token_endpoints() -> None:
         return_value=httpx.Response(200, json={"id": 42})
     )
     respx.post(f"{API}/app/installations/42/access_tokens").mock(
-        return_value=httpx.Response(201, json={"token": "ghs_testtoken", "expires_at": "2026-01-01"})
+        return_value=httpx.Response(
+            201, json={"token": "ghs_testtoken", "expires_at": "2026-01-01"}
+        )
     )
 
 

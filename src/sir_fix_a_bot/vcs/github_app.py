@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import logging
 import os
 import shutil
@@ -99,10 +100,8 @@ class GitHubApp:
         if response.status_code not in expected:
             # `message` is safe to surface; the full body can echo request content.
             detail = ""
-            try:
+            with contextlib.suppress(ValueError):
                 detail = str(response.json().get("message", ""))
-            except ValueError:
-                pass
             raise GitHubError(f"GitHub {method} {path} -> HTTP {response.status_code} {detail}")
         return response.json() if response.content else None
 
@@ -223,9 +222,7 @@ class GitHubApp:
         await self._git("checkout", "-B", branch, cwd=worktree)
         await self._git("add", "-A", cwd=worktree)
         await self._git("commit", "-m", message, cwd=worktree)
-        await self._git(
-            "push", "--force-with-lease", "origin", branch, cwd=worktree, token=token
-        )
+        await self._git("push", "--force-with-lease", "origin", branch, cwd=worktree, token=token)
         logger.info("Pushed %s to %s", branch, repo_full_name)
 
     # --- pull requests and issues -----------------------------------------------------
