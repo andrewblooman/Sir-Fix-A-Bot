@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Sir-Fix-A-Bot -----------------------------------------------------------
+# GitHub App private keys and any other PEM material. Real secrets live in
+# Secret Manager; nothing key-shaped should ever be committed.
+*.pem
+*-private-key.pem
+
+# Local settings overrides (.env is already ignored above; keep the example).
+!.env.example
+
+# Scratch worktrees the worker clones repositories into at runtime.
+.worktrees/
+
+# Claude Code local session state
+.claude/
