@@ -178,6 +178,12 @@ class FixOutcome(BaseModel):
     diff: str = ""
     #: The agent's own explanation of what it changed and why.
     summary: str = ""
+    #: Bullet list of the individual changes made, for the PR body.
+    changes: list[str] = Field(default_factory=list)
+    #: Things the agent was unsure about, or unrelated problems it noticed.
+    notes: list[str] = Field(default_factory=list)
+    tests_added: bool = False
+    tests_rationale: str = ""
     #: Set when the agent reported it could not fix within the house rules.
     blocked_reason: str | None = None
     violations: list[GateViolation] = Field(default_factory=list)
