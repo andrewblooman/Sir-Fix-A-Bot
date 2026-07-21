@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import re
+import threading
+import time
 from typing import Annotated
 
 from pydantic import Field, SecretStr
@@ -114,22 +117,86 @@ def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]  # values come from the environment
 
 
-@functools.lru_cache(maxsize=32)
+class SecretResolutionError(RuntimeError):
+    """A Secret Manager reference could not be resolved."""
+
+
+class _SecretCache:
+    """Time-limited cache of resolved secret values.
+
+    The TTL matters. A Cloud Run instance can serve for hours, and an unbounded cache would keep a
+    rotated credential alive in memory for that whole time — which is precisely wrong when the
+    reason for rotating was a compromise. Caching still avoids a Secret Manager round trip on
+    every single request.
+
+    Guarded by a lock because the intake service runs at concurrency 80.
+    """
+
+    def __init__(self, ttl_seconds: int) -> None:
+        self._ttl = ttl_seconds
+        self._lock = threading.Lock()
+        self._entries: dict[str, tuple[str, float]] = {}
+
+    def get(self, resource: str) -> str:
+        now = time.monotonic()
+        with self._lock:
+            if (entry := self._entries.get(resource)) and now < entry[1]:
+                return entry[0]
+
+        # Fetched outside the lock so one slow call cannot stall every other request.
+        value = _fetch_secret_version(resource)
+
+        with self._lock:
+            self._entries[resource] = (value, time.monotonic() + self._ttl)
+        return value
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+
 def _fetch_secret_version(resource: str) -> str:
+    from google.api_core import exceptions as gcp_exceptions
     from google.cloud import secretmanager
 
-    client = secretmanager.SecretManagerServiceClient()
-    response = client.access_secret_version(request={"name": resource})
-    return response.payload.data.decode("utf-8")
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        response = client.access_secret_version(request={"name": resource})
+    except gcp_exceptions.PermissionDenied as exc:
+        raise SecretResolutionError(
+            f"Permission denied reading {resource}. Grant the runtime service account "
+            "roles/secretmanager.secretAccessor on this secret."
+        ) from exc
+    except gcp_exceptions.NotFound as exc:
+        raise SecretResolutionError(
+            f"{resource} does not exist. Create the secret and add a version "
+            f"(`gcloud secrets versions add`)."
+        ) from exc
+    except gcp_exceptions.GoogleAPIError as exc:
+        raise SecretResolutionError(f"Could not read {resource}: {type(exc).__name__}") from exc
+
+    payload: bytes = response.payload.data
+    # A trailing newline from `echo "value" | gcloud secrets versions add --data-file=-` is the
+    # single most common way a secret silently fails to authenticate.
+    return payload.decode("utf-8").strip()
+
+
+_secret_cache = _SecretCache(ttl_seconds=int(os.environ.get("SFB_SECRET_CACHE_TTL_S", "900")))
 
 
 def resolve_secret(value: SecretStr) -> str:
     """Return the plaintext for a setting that may be a Secret Manager reference.
 
     A value shaped like `projects/*/secrets/*/versions/*` is fetched from Secret Manager; anything
-    else is treated as the literal secret (local development).
+    else is treated as the literal secret (local development). Point references at
+    `versions/latest` so a rotation is picked up without a redeploy.
     """
     raw = value.get_secret_value()
     if _SECRET_RESOURCE.match(raw):
-        return _fetch_secret_version(raw)
+        return _secret_cache.get(raw)
     return raw
+
+
+def clear_secret_cache() -> None:
+    """Drop every cached secret, forcing the next resolution to re-read Secret Manager."""
+    _secret_cache.clear()

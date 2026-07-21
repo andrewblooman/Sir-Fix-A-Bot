@@ -104,13 +104,59 @@ which produces duplicate PRs. The agent and build budgets are sized to stay well
 
 ## Configuration
 
-All settings are `SFB_`-prefixed environment variables (see `config.py`). Every secret accepts either
-a literal value for local development or a Secret Manager resource name
-(`projects/*/secrets/*/versions/*`) in production, so no secret material lands in the Cloud Run
-environment.
+All settings are `SFB_`-prefixed environment variables (see `config.py` and `.env.example`).
 
 Notion's *hosted* MCP server is OAuth-browser-only and unusable headless, so the CMDB lookup runs
 against a self-hosted `@notionhq/notion-mcp-server` over stdio with an internal integration token.
+
+## Credentials
+
+Six secrets live in **Secret Manager**: Wiz client ID and secret, the Wiz webhook shared secret,
+the Notion integration token, the GitHub App private key, and the Anthropic API key.
+
+Every secret-bearing setting accepts *either* a literal value (local development) *or* a Secret
+Manager resource name. In production you set the resource name, which is not itself sensitive:
+
+```bash
+SFB_NOTION_TOKEN=projects/my-project/secrets/sfb-notion-token/versions/latest
+```
+
+`resolve_secret()` reads the value at the point of use, so no secret material appears in the Cloud
+Run environment, in Terraform state, or in a `.env` file. Resolution is lazy, which also means a
+missing IAM binding surfaces as a clear runtime error rather than a service that won't start.
+
+### Setting them up
+
+```bash
+cd deploy/terraform && terraform apply     # creates the secret containers + IAM bindings
+../../scripts/setup-secrets.sh my-project  # loads the values, prompting for each
+```
+
+Terraform deliberately creates the secret *containers* but not the *versions* — a value passed
+through Terraform is written to state in plaintext, and state is usually more widely readable than
+the secret itself.
+
+### Rotation
+
+Re-run `setup-secrets.sh` to add a new version. References point at `versions/latest` and resolved
+values are cached for 15 minutes (`SFB_SECRET_CACHE_TTL_S`), so a rotation takes effect without a
+redeploy. The cache has a TTL rather than being unbounded specifically so that rotating *because of
+a compromise* actually evicts the old credential — a Cloud Run instance can otherwise serve for
+hours.
+
+### Least privilege
+
+Three service accounts, so the blast radius of each is bounded:
+
+| Identity | Can read | Notes |
+| --- | --- | --- |
+| `sfb-intake` | Wiz webhook secret only | Cannot open a PR — no GitHub key, no Anthropic key |
+| `sfb-worker` | All six | Runs the agent and opens pull requests |
+| `sfb-tasks-invoker` | Nothing | Exists only to mint OIDC tokens for the worker |
+
+The GitHub credential is a **GitHub App**, not a PAT: tokens are minted per repository and expire
+within the hour. They are handed to git through `GIT_CONFIG_*` rather than embedded in the remote
+URL, so no token persists into `.git/config` where the agent's own `Read` tool could find it.
 
 ## Licence
 

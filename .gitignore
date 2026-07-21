@@ -231,3 +231,16 @@ __marimo__/
 
 # Claude Code local session state
 .claude/
+
+# --- Terraform ---------------------------------------------------------------
+# State contains every resource attribute in plaintext and must never be committed.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Real variable files; the .example is the committed template.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example

@@ -1,0 +1,76 @@
+# Copy to terraform.tfvars and fill in.
+#
+# Note what is and is not here: every credential is referenced by its Secret Manager *resource
+# name*, never its value. Resource names are not sensitive, so they are safe in tfvars, in
+# Terraform state, and in the Cloud Run environment. The values themselves are loaded out of band
+# by scripts/setup-secrets.sh and are read at runtime by the service account.
+
+project_id = "my-project"
+region     = "europe-west2"
+
+intake_image = "europe-west2-docker.pkg.dev/my-project/sir-fix-a-bot/intake:v1"
+worker_image = "europe-west2-docker.pkg.dev/my-project/sir-fix-a-bot/worker:v1"
+
+# Queue-level throttle. This is the main bound on Anthropic spend and Cloud Build usage when a
+# large Wiz rescan delivers hundreds of findings at once.
+max_concurrent_remediations = 3
+max_worker_instances        = 10
+
+# Intake verifies the webhook secret and enqueues. It is deliberately not granted access to the
+# GitHub App key or the Anthropic key — a compromise here cannot open a pull request.
+intake_env = {
+  SFB_GCP_PROJECT        = "my-project"
+  SFB_GCP_REGION         = "europe-west2"
+  SFB_TASKS_QUEUE        = "sir-fix-a-bot"
+  SFB_WIZ_MIN_SEVERITY   = "HIGH"
+  SFB_WIZ_API_URL        = "https://api.eu17.app.wiz.io/graphql"
+  SFB_WIZ_WEBHOOK_SECRET = "projects/my-project/secrets/sfb-wiz-webhook-secret/versions/latest"
+
+  # Settings validation requires these to be present, but intake never resolves them — a resource
+  # name is just a string until something calls resolve_secret on it.
+  SFB_WIZ_CLIENT_ID           = "projects/my-project/secrets/sfb-wiz-client-id/versions/latest"
+  SFB_WIZ_CLIENT_SECRET       = "projects/my-project/secrets/sfb-wiz-client-secret/versions/latest"
+  SFB_NOTION_TOKEN            = "projects/my-project/secrets/sfb-notion-token/versions/latest"
+  SFB_NOTION_CMDB_DATABASE_ID = "0123456789abcdef0123456789abcdef"
+  SFB_GITHUB_APP_ID           = "1234567"
+  SFB_GITHUB_APP_PRIVATE_KEY  = "projects/my-project/secrets/sfb-github-app-private-key/versions/latest"
+  SFB_ANTHROPIC_API_KEY       = "projects/my-project/secrets/sfb-anthropic-api-key/versions/latest"
+}
+
+worker_env = {
+  SFB_GCP_PROJECT = "my-project"
+  SFB_GCP_REGION  = "europe-west2"
+
+  # Wiz: service account of type "Custom Integration - GraphQL", scope read:vulnerabilities.
+  SFB_WIZ_API_URL       = "https://api.eu17.app.wiz.io/graphql"
+  SFB_WIZ_CLIENT_ID     = "projects/my-project/secrets/sfb-wiz-client-id/versions/latest"
+  SFB_WIZ_CLIENT_SECRET = "projects/my-project/secrets/sfb-wiz-client-secret/versions/latest"
+  SFB_WIZ_WEBHOOK_SECRET = "projects/my-project/secrets/sfb-wiz-webhook-secret/versions/latest"
+
+  # Notion: internal integration secret. Share the CMDB page with the integration or every
+  # lookup returns nothing. Column names are free text in Notion, so they are configuration.
+  SFB_NOTION_TOKEN            = "projects/my-project/secrets/sfb-notion-token/versions/latest"
+  SFB_NOTION_CMDB_DATABASE_ID = "0123456789abcdef0123456789abcdef"
+  SFB_NOTION_PROP_SERVICE     = "Service Name"
+  SFB_NOTION_PROP_REPO        = "GitHub Repo"
+  SFB_NOTION_PROP_OWNER       = "Owner"
+  SFB_NOTION_PROP_TEAM        = "Team"
+  SFB_NOTION_PROP_BRANCH      = "Default Branch"
+  SFB_NOTION_PROP_DOCKERFILE  = "Dockerfile Path"
+
+  # GitHub App, not a PAT: tokens are minted per repository and expire within the hour.
+  SFB_GITHUB_APP_ID          = "1234567"
+  SFB_GITHUB_APP_PRIVATE_KEY = "projects/my-project/secrets/sfb-github-app-private-key/versions/latest"
+  SFB_GITHUB_LABEL           = "sir-fix-a-bot"
+
+  SFB_ANTHROPIC_API_KEY = "projects/my-project/secrets/sfb-anthropic-api-key/versions/latest"
+  SFB_AGENT_MODEL       = "claude-opus-4-8"
+  SFB_AGENT_EFFORT      = "xhigh"
+  SFB_AGENT_TIMEOUT_S   = "900"
+
+  # How long a resolved secret is held in memory before it is re-read. Lower means a rotation
+  # takes effect sooner; higher means fewer Secret Manager calls.
+  SFB_SECRET_CACHE_TTL_S = "900"
+
+  SFB_REPAIR_ATTEMPTS = "1"
+}
