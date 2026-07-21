@@ -116,8 +116,10 @@ def _run_build(
     settings: Settings, worktree: Path, config: dict[str, object], has_tests: bool
 ) -> VerificationResult:
     """Upload the worktree and run the build. Blocking; called via `asyncio.to_thread`."""
-    from google.cloud import storage
+    # `google.cloud` is a namespace package, so the submodule must be imported by its full path
+    # for the name to resolve under a type checker.
     from google.cloud.devtools import cloudbuild_v1
+    from google.cloud.storage import Client as StorageClient
 
     source_object = f"sir-fix-a-bot/{uuid.uuid4().hex}.tgz"
     bucket_name = f"{settings.gcp_project}_cloudbuild"
@@ -126,7 +128,7 @@ def _run_build(
         archive = Path(tmp) / "source.tgz"
         _archive_worktree(worktree, archive)
 
-        storage_client = storage.Client(project=settings.gcp_project)
+        storage_client = StorageClient(project=settings.gcp_project)
         blob = storage_client.bucket(bucket_name).blob(source_object)
         blob.upload_from_filename(str(archive))
 
@@ -134,7 +136,7 @@ def _run_build(
         source=cloudbuild_v1.Source(
             storage_source=cloudbuild_v1.StorageSource(bucket=bucket_name, object_=source_object)
         ),
-        **config,  # type: ignore[arg-type]
+        **config,
     )
 
     client = cloudbuild_v1.CloudBuildClient()

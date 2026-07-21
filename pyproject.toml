@@ -57,3 +57,9 @@ ignore = ["S101"]
 [tool.mypy]
 python_version = "3.14"
 strict = true
+
+# google-cloud-storage ships no py.typed marker. Scoped to that one module rather than relaxing
+# strict mode across the codebase.
+[[tool.mypy.overrides]]
+module = ["google.cloud.storage.*", "google.cloud.storage"]
+ignore_missing_imports = true

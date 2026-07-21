@@ -34,7 +34,7 @@ class Severity(StrEnum):
         ]
         return order.index(self)
 
-    def __ge__(self, other: object) -> bool:  # type: ignore[override]
+    def __ge__(self, other: object) -> bool:
         if not isinstance(other, Severity):
             return NotImplemented
         return self.rank >= other.rank
